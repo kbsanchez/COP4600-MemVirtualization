@@ -13,7 +13,7 @@ int main(int argc, char *argv[]) {
 
 
     if (num_frames <= 0) {
-        printf("Error. Invalid number of frames.\n");
+        std::cout << "Error. Invalid number of frames.\n";
         return -1;
     }
 
@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
         int p = atoi(argv[4]);
         
         if((p < 1) || (p > 100)){
-            printf("Error. Percentage must be a number between 1 and 100.\n");
+            std::cout << "Error. Percentage must be a number between 1 and 100.\n";
             return -1;
         }
 
