@@ -7,21 +7,38 @@
 
 
 int main(int argc, char *argv[]) {
-    char *in_file = argv[1];
+    std::string in_file = argv[1];
     int num_frames = atoi(argv[2]);
-    char *alg = argv[3];
-    int p = atoi(argv[4]);
-    char *mode = argv[5];
+    std::string alg = argv[3];
+
 
     if (num_frames <= 0) {
         printf("Error. Invalid number of frames.\n");
         return -1;
     }
 
-    //Making sure inputs are being retrieved
+    if(alg == "vms"){
+        //Taking an extra parameter for vms
+        int p = atoi(argv[4]);
+        
+        if((p < 1) || (p > 100)){
+            printf("Error. Percentage must be a number between 1 and 100.\n");
+            return -1;
+        }
+
+        std::string mode = argv[5];
+            //Making sure inputs are being retrieved
     std::cout << "infile: " << in_file << "\n"
               << "num_frames: " << num_frames << "\n"
               << "alg: " << alg << "\n"
               << "p: " << p << "\n"
               << "mode: " << mode << "\n";
+    }else{
+        std::string mode = argv[4];
+            //Making sure inputs are being retrieved
+    std::cout << "infile: " << in_file << "\n"
+              << "num_frames: " << num_frames << "\n"
+              << "alg: " << alg << "\n"
+              << "mode: " << mode << "\n";
+    }
 }
