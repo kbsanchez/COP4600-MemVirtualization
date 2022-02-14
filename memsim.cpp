@@ -11,7 +11,7 @@ int events_cnt = 0;
 int hits_cnt = 0;
 int fault_cnt = 0;
 int reads_cnt = 0;
-int faults_cnt = 0;
+int writes_cnt = 0;
 
 int main(int argc, char *argv[]) {
     char* in_file = argv[1];
@@ -63,6 +63,12 @@ int main(int argc, char *argv[]) {
 
     while(fscanf(trace, "%x %c", &addr, &rw) != EOF){
         ++events_cnt;
-        std::cout << "events: " << events_cnt << "\n";
+        if(strcmp(&rw, "R")){
+            ++reads_cnt;
+        }else if(strcmp(&rw, "W")){
+            ++writes_cnt;
+        }
+        std::cout << "events: " << events_cnt
+            << "\treads: " << reads_cnt << "\twrites: " << writes_cnt << "\n";
     }
 }
