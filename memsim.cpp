@@ -26,60 +26,54 @@ int main(int argc, char *argv[]) {
     char* in_file = argv[1];
     int num_frames = atoi(argv[2]);
     std::string alg = argv[3];
-    std::string mode;
+    std::string mode = "";
     int p;
+
+    //Algorithm validation
     if (alg == "vms"){
         p = atoi(argv[4]);
+
+        //Percentage validation
+        if ((p < 1) || (p > 100)){
+            std::cout << "Error. Percentage must be a number between 1 and 100.\n";
+            return -1;
+        }
+
         mode = argv[5];
     }
     else if (alg == "lru" || alg == "fifo"){
-        mode = argv[4];
+        if(!strcmp(argv[4], "debug\n") || !strcmp(argv[4], "quiet\n")){
+            std::cout << "Error. Percentage parameter only needed for vms algorithm.\n";
+            return -1;
+        }
+        else{
+            mode = argv[4];
+        }
     }
     else{
         std::cout << "Error. Invalid algorithm.\n";
         return -1;
     }
 
-
+    //Number of frames validation
     if (num_frames <= 0) {
         std::cout << "Error. Invalid number of frames.\n";
         return -1;
     }
 
-    /* --------------------------------------------
-    //Also add mode check somewhere here.
-        //Would also be a good idea to add a check if LRU, FIFO have the P parameter when they shouldn't 
-        / VMS doesn't have when it should.
-    ----------------------------------------------- */
-    
-    if(alg == "vms"){
-        
-        
-        if((p < 1) || (p > 100)){
-            std::cout << "Error. Percentage must be a number between 1 and 100.\n";
-            return -1;
-        }
-        
-        //Making sure inputs are being retrieved
-        std::cout << "infile: " << in_file << "\n"
-            << "num_frames: " << num_frames << "\n"
-            << "alg: " << alg << "\n"
-            << "p: " << p << "\n"
-            << "mode: " << mode << "\n\n";
+    //Mode validation
+    if (mode == "debug"){
+        //do something
+    }
+    else if (mode == "quiet"){
+        //do something
     }
     else{
-        
-        //Making sure inputs are being retrieved
-        std::cout << "infile: " << in_file << "\n"
-            << "num_frames: " << num_frames << "\n"
-            << "alg: " << alg << "\n"
-            << "mode: " << mode << "\n\n";
+        std::cout << "Error. Mode must be debug or quiet.\n";
+            return -1;
     }
-    //std::ifstream trace;
     
-    
-    
-    
+    //
     FILE *trace = fopen(in_file, "r");
     if (trace == NULL){
         std::cout << "Failed to open requested file.\n";
@@ -99,7 +93,7 @@ int main(int argc, char *argv[]) {
         }else if(strcmp(&rw, "W")){
             ++writes_cnt; //<-- this one too
             newEntry->dirty = 1;
-        }
+        }                 //sounds good!
     }
 
     std::cout << "total memory frames: " << num_frames << "\n"
