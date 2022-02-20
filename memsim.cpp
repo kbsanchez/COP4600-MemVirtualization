@@ -5,6 +5,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+// #include <list>
+// #include <algorithm>
 
 #define PAGE_SIZE 4096 //Page sized is assumed 4KB, 4096 Bytes
 
@@ -25,30 +27,23 @@ int elapsed_time = 0;
 
 std::vector<pt_entry*> page_table;
 
-
-
 int get_time_accessed() {
     return ++elapsed_time;
 }
 
-
-
 pt_entry* is_present(pt_entry *entry) {
-    for (int i = 0; i < page_table.size(); i++) {
-        if (page_table[i]->VPN == entry->VPN){
-            return page_table[i];
+        for (int i = 0; i < page_table.size(); i++) {
+            if (page_table[i]->VPN == entry->VPN){
+                return page_table[i];
+            }
         }
-        else{
-            return nullptr;
-        }
-    }
+        
+        return NULL;
 }
-
-
 
 void fifo(pt_entry *PTE, int nframes){
     pt_entry *locale = is_present(PTE);
-    if (locale == nullptr) {
+    if (locale == NULL) {
         fault_cnt++;
         reads_cnt++;
         //page not found, fault and must read from disk
@@ -76,7 +71,48 @@ void fifo(pt_entry *PTE, int nframes){
     }
 }
 
+void lru(pt_entry *PTE, int nframes){
+    pt_entry *locale = is_present(PTE);
+    
+    if(locale == NULL){ //if not present
+        fault_cnt++;
+        reads_cnt++;
 
+        if(page_table.size() == nframes){   //if page table is full
+            int smallest = 1000001;
+            int lru = 0;
+            for(int i = 0; i < page_table.size(); i++){         //search through table for smallest
+                if(page_table[i]->time_accessed < smallest){
+                    smallest = page_table[i]->time_accessed;
+                    lru = i;
+                }
+            }
+
+            if (page_table[lru]->dirty == 1) {
+                writes_cnt++;
+            }
+
+            page_table.erase(page_table.begin() + lru);     //erase lru element
+            page_table.push_back(PTE);     
+        }
+        else{   //if not full
+            PTE->time_accessed = elapsed_time;  //update elapsed time
+            page_table.push_back(PTE);
+        }
+
+    }
+    else{   //if present
+        hits_cnt++;                                             
+        for (int i = 0; i < page_table.size(); i++) {
+            if (page_table[i]->VPN == PTE->VPN){
+                page_table[i]->time_accessed = elapsed_time;    //update elapsed time
+            }
+        }
+        if (PTE->dirty == 1){
+            locale->dirty = 1;
+        }
+    }
+}
 
 int main(int argc, char *argv[]) {
     char* in_file = argv[1];
@@ -118,18 +154,11 @@ int main(int argc, char *argv[]) {
     }
 
     //Mode validation
-    if (mode == "debug"){
-        //do something
-    }
-    else if (mode == "quiet"){
-        //do something
-    }
-    else{
+    if (mode != "debug" && mode!= "quiet"){
         std::cout << "Error. Mode must be debug or quiet.\n";
             return -1;
     }
     
-    //
     FILE *trace = fopen(in_file, "r");
     if (trace == NULL){
         std::cout << "Failed to open requested file.\n";
@@ -144,12 +173,10 @@ int main(int argc, char *argv[]) {
         
         pt_entry *newEntry = new pt_entry;
         if(strcmp(&rw, "R")){
-            //++reads_cnt; //this will be incremented within the algo during faults i think? but we can keep it here to test
             newEntry->dirty = 0;
         }else if(strcmp(&rw, "W")){
-            //++writes_cnt; //<-- this one too
             newEntry->dirty = 1;
-        }                 //sounds good!
+        }                
 
         newEntry->VPN = addr / PAGE_SIZE;
         newEntry->time_accessed = get_time_accessed();
@@ -160,6 +187,7 @@ int main(int argc, char *argv[]) {
         }
         else if (alg == "lru"){
             //Send entry to lru
+            lru(newEntry, num_frames);
         }
         else if (alg == "vms"){
             //Send entry to vms
