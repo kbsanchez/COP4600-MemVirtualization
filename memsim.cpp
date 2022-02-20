@@ -5,8 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-// #include <list>
-// #include <algorithm>
+#include <math.h>
 
 #define PAGE_SIZE 4096 //Page sized is assumed 4KB, 4096 Bytes
 
@@ -26,6 +25,7 @@ int writes_cnt = 0;
 int elapsed_time = 0;
 
 std::vector<pt_entry*> page_table;
+std::vector<pt_entry*> secondary_buffer;
 
 int get_time_accessed() {
     return ++elapsed_time;
@@ -37,7 +37,17 @@ pt_entry* is_present(pt_entry *entry) {
                 return page_table[i];
             }
         }
-        
+
+        return NULL;
+}
+
+pt_entry* is_present_secondary(pt_entry *entry) {
+        for (int i = 0; i < secondary_buffer.size(); i++) {
+            if (secondary_buffer[i]->VPN == entry->VPN){
+                return secondary_buffer[i];
+            }
+        }
+
         return NULL;
 }
 
@@ -111,6 +121,120 @@ void lru(pt_entry *PTE, int nframes){
         if (PTE->dirty == 1){
             locale->dirty = 1;
         }
+    }
+}
+
+void segmented_fifo(pt_entry *PTE, int nframes, int p){
+    int secondaryFrames = floor(nframes * (p * .01));
+    int primaryFrames = nframes - secondaryFrames;
+
+    if(primaryFrames == 0){ // if p = 100, it emulates lru
+        lru(PTE, secondaryFrames);
+    }
+    else{
+        if(secondaryFrames == 0){   // if p = 0, it emulates fifo
+            fifo(PTE, nframes);
+        }
+        else{
+            pt_entry *locale = is_present(PTE);
+            if (locale == NULL) {   // if not in primary buffer
+                
+                // is primary full?
+                if (page_table.size() == primaryFrames){  // if primary is full
+                    pt_entry *locale2 = is_present_secondary(PTE);
+
+                    if (locale2 == NULL){   // if not in secondary buffer
+                        fault_cnt++;
+                        reads_cnt++;
+                        
+                        if (secondary_buffer.size() == secondaryFrames){    // if secondary buffer is full
+                            int smallest = 1000001;
+                            int lru = 0;
+                            for(int i = 0; i < secondary_buffer.size(); i++){         //search through table for smallest
+                                if(secondary_buffer[i]->time_accessed < smallest){
+                                    smallest = secondary_buffer[i]->time_accessed;
+                                    lru = i;
+                                }
+                            }
+
+                            if (secondary_buffer[lru]->dirty == 1) {
+                                writes_cnt++;
+                            }
+
+                            secondary_buffer.erase(secondary_buffer.begin() + lru);     //erase lru element
+
+                            pt_entry *temp = PTE;
+                            pt_entry *oldestInPrimary = page_table[0];
+
+                            secondary_buffer.erase(secondary_buffer.begin() + lru);     //erase element
+                            secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
+
+                            page_table[0] = temp;   // overwrite head of primary buffer
+                        }
+                        else {  // if secondary buffer is not full
+                            PTE->time_accessed = elapsed_time;
+
+                            pt_entry *oldestInPrimary = page_table[0];
+
+                            secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
+
+                            page_table[0] = PTE;   // overwrite head of primary buffer
+                        }
+                    }
+                    else{   // if in secondary buffer
+                        hits_cnt++;
+                        int index = 0;                                             
+                        for (int i = 0; i < secondary_buffer.size(); i++) {
+                            if (secondary_buffer[i]->VPN == PTE->VPN){
+                                index = i;
+                                secondary_buffer[i]->time_accessed = elapsed_time;    //update elapsed time
+                            }
+                        }
+                        if (PTE->dirty == 1){
+                            locale2->dirty = 1;
+                        }
+
+                        pt_entry *temp = locale2;
+                        pt_entry *oldestInPrimary = page_table[0];
+
+                        secondary_buffer.erase(secondary_buffer.begin() + index);     //erase element
+                        secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
+
+                        page_table[0] = temp;   // overwrite head of primary buffer
+
+                    }
+                }
+                else {  // if primary is not full
+                    PTE->time_accessed = elapsed_time;
+                    page_table.push_back(PTE);
+                }
+    
+                //      else if its not in secondary:
+                //      is secondary full?
+                //          if secondary full:
+                //              remove a page using lru
+                //              move primary buffer front to secondary buffer
+                //              add new page into primary
+                //          else:
+                //              move front of primary to secondary
+                //              add referenced new page into primary
+
+            }
+            else {  // if in primary buffer - carry on like normal
+                hits_cnt++;
+                for (int i = 0; i < page_table.size(); i++) {
+                    if (page_table[i]->VPN == PTE->VPN){
+                        page_table[i]->time_accessed = elapsed_time;    //update elapsed time
+                    }
+                }
+
+                if (PTE->dirty == 1)
+                {
+                    locale->dirty = 1;
+                }
+            }
+        }
+        
     }
 }
 
@@ -191,6 +315,7 @@ int main(int argc, char *argv[]) {
         }
         else if (alg == "vms"){
             //Send entry to vms
+            segmented_fifo(newEntry, num_frames, p);
         }
         else{
             std::cout << "Error\n";
