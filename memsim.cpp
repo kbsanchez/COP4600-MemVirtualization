@@ -36,10 +36,9 @@ pt_entry* is_present(pt_entry *entry) {
             if (page_table[i]->VPN == entry->VPN){
                 return page_table[i];
             }
-            else{
-                return NULL;
-            }
         }
+        
+        return NULL;
 }
 
 void fifo(pt_entry *PTE, int nframes){
