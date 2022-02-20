@@ -5,8 +5,8 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <list>
-#include <algorithm>
+// #include <list>
+// #include <algorithm>
 
 #define PAGE_SIZE 4096 //Page sized is assumed 4KB, 4096 Bytes
 
@@ -32,7 +32,6 @@ int get_time_accessed() {
 }
 
 pt_entry* is_present(pt_entry *entry) {
-
         for (int i = 0; i < page_table.size(); i++) {
             if (page_table[i]->VPN == entry->VPN){
                 return page_table[i];
@@ -80,7 +79,7 @@ void lru(pt_entry *PTE, int nframes){
         fault_cnt++;
         reads_cnt++;
 
-        if(page_table.size() == nframes){   //if pt full
+        if(page_table.size() == nframes){   //if page table is full
             int smallest = 1000001;
             int lru = 0;
             for(int i = 0; i < page_table.size(); i++){         //search through table for smallest
@@ -156,18 +155,11 @@ int main(int argc, char *argv[]) {
     }
 
     //Mode validation
-    if (mode == "debug"){
-        //do something
-    }
-    else if (mode == "quiet"){
-        //do something
-    }
-    else{
+    if (mode != "debug" && mode!= "quiet"){
         std::cout << "Error. Mode must be debug or quiet.\n";
             return -1;
     }
     
-    //
     FILE *trace = fopen(in_file, "r");
     if (trace == NULL){
         std::cout << "Failed to open requested file.\n";
