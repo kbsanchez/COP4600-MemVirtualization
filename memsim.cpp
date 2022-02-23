@@ -53,26 +53,25 @@ pt_entry* is_present_secondary(pt_entry *entry) {
 
 void fifo(pt_entry *PTE, int nframes){
     pt_entry *locale = is_present(PTE);
-    if (locale == NULL) {
+    if (locale == NULL) { //if not present
         fault_cnt++;
         reads_cnt++;
-        //page not found, fault and must read from disk
+        //fault and must read from disk
 
-        if (page_table.size() == nframes){
-            //table is full
+        if (page_table.size() == nframes){ //if page table is full
             //pop first
             //push
-            if (page_table[0]->dirty == 1) {
+            if (page_table[0]->dirty == 1) { //write to disk is entry to be removed is dirty
                 writes_cnt++;
             }
-            page_table.erase(page_table.begin());
+            page_table.erase(page_table.begin()); //erase fifo element
             page_table.push_back(PTE);
         }
-        else {
+        else { //if not full
             page_table.push_back(PTE);
         }
     }
-    else {
+    else { //if present
         hits_cnt++;
         if (PTE->dirty == 1)
         {
@@ -296,9 +295,9 @@ int main(int argc, char *argv[]) {
         ++events_cnt;
         
         pt_entry *newEntry = new pt_entry;
-        if(strcmp(&rw, "R")){
+        if(rw == 'R'){
             newEntry->dirty = 0;
-        }else if(strcmp(&rw, "W")){
+        }else if(rw == 'W'){
             newEntry->dirty = 1;
         }                
 
