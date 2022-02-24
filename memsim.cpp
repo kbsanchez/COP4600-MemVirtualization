@@ -124,7 +124,7 @@ void lru(pt_entry *PTE, int nframes){
 }
 
 void segmented_fifo(pt_entry *PTE, int nframes, int p){
-    int secondaryFrames = floor(nframes * (p * .01));
+    int secondaryFrames = nframes * (p * .01);
     int primaryFrames = nframes - secondaryFrames;
 
     if(primaryFrames == 0){ // if p = 100, it emulates lru
@@ -135,107 +135,78 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
             fifo(PTE, nframes);
         }
         else{
-            pt_entry *locale = is_present(PTE);
-            if (locale == NULL) {   // if not in primary buffer
-                
-                // is primary full?
-                if (page_table.size() == primaryFrames){  // if primary is full
-                    pt_entry *locale2 = is_present_secondary(PTE);
-
-                    if (locale2 == NULL){   // if not in secondary buffer
-                        fault_cnt++;
-                        reads_cnt++;
-                        
-                        if (secondary_buffer.size() == secondaryFrames){    // if secondary buffer is full
-                            int smallest = 1000001;
-                            int lru = 0;
-                            for(int i = 0; i < secondary_buffer.size(); i++){         //search through table for smallest
-                                if(secondary_buffer[i]->time_accessed < smallest){
-                                    smallest = secondary_buffer[i]->time_accessed;
-                                    lru = i;
-                                }
+            //CHECK PRESENCE IN BOTH BUFFERS FIRST
+            pt_entry* locale_prim = is_present(PTE);
+            pt_entry* locale_sec = is_present_secondary(PTE); 
+            if (locale_prim == NULL && locale_sec == NULL){ //If absent from both
+                fault_cnt++;
+                reads_cnt++;
+                if (page_table.size() == primaryFrames){ //If prim buffer is full
+                    if (secondary_buffer.size() == secondaryFrames){ //If secondary buff is full
+                        int smallest = 1000001;                            
+                        int lru = 0; 
+                        for (int i = 0; i < secondary_buffer.size(); i++){ //find lru entry and evict
+                            if(secondary_buffer[i]->time_accessed < smallest){
+                                smallest = secondary_buffer[i]->time_accessed;
+                                lru = i;
                             }
-
-                            if (secondary_buffer[lru]->dirty == 1) {
-                                writes_cnt++;
-                            }
-
-                            secondary_buffer.erase(secondary_buffer.begin() + lru);     //erase lru element
-
-                            pt_entry *temp = PTE;
-                            pt_entry *oldestInPrimary = page_table[0];
-
-                            secondary_buffer.erase(secondary_buffer.begin() + lru);     //erase element
-                            secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
-
-                            page_table[0] = temp;   // overwrite head of primary buffer
                         }
-                        else {  // if secondary buffer is not full
-                            PTE->time_accessed = elapsed_time;
-
-                            pt_entry *oldestInPrimary = page_table[0];
-
-                            secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
-
-                            page_table[0] = PTE;   // overwrite head of primary buffer
+                        if (secondary_buffer[lru]->dirty == 1){
+                            writes_cnt++;
                         }
-                    }
-                    else{   // if in secondary buffer
-                        hits_cnt++;
-                        int index = 0;                                             
+                        secondary_buffer.erase(secondary_buffer.begin() + lru);
+                        secondary_buffer.push_back(page_table[0]);
                         for (int i = 0; i < secondary_buffer.size(); i++) {
-                            if (secondary_buffer[i]->VPN == PTE->VPN){
-                                index = i;
-                                secondary_buffer[i]->time_accessed = elapsed_time;    //update elapsed time
+                            if (secondary_buffer[i]->VPN == page_table[0]->VPN){
+                                secondary_buffer[i]->time_accessed = get_time_accessed();    //update elapsed time of inserted value
                             }
                         }
-                        if (PTE->dirty == 1){
-                            locale2->dirty = 1;
+                        page_table.erase(page_table.begin());  
+                        page_table.push_back(PTE);
+                    }
+                    else { //secondary buff is not full
+                        secondary_buffer.push_back(page_table[0]);
+                        for (int i = 0; i < secondary_buffer.size(); i++) {
+                            if (secondary_buffer[i]->VPN == page_table[0]->VPN){
+                                secondary_buffer[i]->time_accessed = get_time_accessed();    //update elapsed time of inserted value
+                            }
                         }
-
-                        pt_entry *temp = locale2;
-                        pt_entry *oldestInPrimary = page_table[0];
-
-                        secondary_buffer.erase(secondary_buffer.begin() + index);     //erase element
-                        secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
-
-                        page_table[0] = temp;   // overwrite head of primary buffer
-
+                        page_table.erase(page_table.begin());
+                        page_table.push_back(PTE);
                     }
                 }
-                else {  // if primary is not full
-                    PTE->time_accessed = elapsed_time;
+                else { //prim buff is not full
                     page_table.push_back(PTE);
                 }
-    
-                //      else if its not in secondary:
-                //      is secondary full?
-                //          if secondary full:
-                //              remove a page using lru
-                //              move primary buffer front to secondary buffer
-                //              add new page into primary
-                //          else:
-                //              move front of primary to secondary
-                //              add referenced new page into primary
-
             }
-            else {  // if in primary buffer - carry on like normal
+            else if (locale_prim != NULL) { //present in primary buffer
                 hits_cnt++;
-                for (int i = 0; i < page_table.size(); i++) {
-                    if (page_table[i]->VPN == PTE->VPN){
-                        page_table[i]->time_accessed = elapsed_time;    //update elapsed time
+                if (PTE->dirty == 1){
+                    locale_prim->dirty = 1;
+                }
+            }
+            else if (locale_sec != NULL) { //present in secondary buffer
+                hits_cnt++;
+                if (PTE->dirty == 1){
+                    locale_sec->dirty = 1;
+                }
+
+                page_table.push_back(PTE);
+                secondary_buffer.push_back(page_table[0]);
+                page_table.erase(page_table.begin());
+                for (int i = 0; i < secondary_buffer.size(); i++) {
+                    if (secondary_buffer[i]->VPN == page_table[0]->VPN){
+                        secondary_buffer[i]->time_accessed = get_time_accessed();    //update elapsed time of inserted value
                     }
                 }
-
-                if (PTE->dirty == 1)
-                {
-                    locale->dirty = 1;
-                }
+            }
+            else{ //This shouldnt happen, the new entry cannot be in both buffers
+                std::cout << "please god dont print this.\n";
             }
         }
-        
     }
 }
+
 
 int main(int argc, char *argv[]) {
     char* in_file = argv[1];
