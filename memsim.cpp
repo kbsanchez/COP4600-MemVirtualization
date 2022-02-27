@@ -152,27 +152,29 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
                             }
                         }
                         if (secondary_buffer[lru]->dirty == 1){
-                            writes_cnt++;
+                            writes_cnt++; //increment write count
                         }
                         secondary_buffer.erase(secondary_buffer.begin() + lru);
-                        secondary_buffer.push_back(page_table[0]);
-                        for (int i = 0; i < secondary_buffer.size(); i++) {
-                            if (secondary_buffer[i]->VPN == page_table[0]->VPN){
-                                secondary_buffer[i]->time_accessed = get_time_accessed();    //update elapsed time of inserted value
-                            }
+                        for (int i = 0; i < secondary_buffer.size(); i++)
+                        {
+                            secondary_buffer[i]->time_accessed = elapsed_time;//update elapsed time sec buffer, in slides this is done before val is inserted
                         }
-                        page_table.erase(page_table.begin());  
-                        page_table.push_back(PTE);
+                        pt_entry* oldestInPrimary = page_table[0];
+                        oldestInPrimary->time_accessed = 1; //resetting access time when value is pushed to sec buffer, just in case this val was in sec buffer before already
+                        secondary_buffer.push_back(oldestInPrimary); //push oldest in primary to sec buffer
+                        page_table.push_back(PTE); //push new entry to primary 
+                        page_table.erase(page_table.begin());  //remove oldest from primary
                     }
                     else { //secondary buff is not full
-                        secondary_buffer.push_back(page_table[0]);
-                        for (int i = 0; i < secondary_buffer.size(); i++) {
-                            if (secondary_buffer[i]->VPN == page_table[0]->VPN){
-                                secondary_buffer[i]->time_accessed = get_time_accessed();    //update elapsed time of inserted value
-                            }
+                        page_table.push_back(PTE); //add to prim buffer
+                        for (int i = 0; i < secondary_buffer.size(); i++)
+                        {
+                            secondary_buffer[i]->time_accessed = elapsed_time; //update sec buffer access times
                         }
-                        page_table.erase(page_table.begin());
-                        page_table.push_back(PTE);
+                        pt_entry* oldestInPrimary = page_table[0];
+                        oldestInPrimary->time_accessed = 1; //reseting access time
+                        secondary_buffer.push_back(oldestInPrimary); //add fifo val to sec buffer
+                        page_table.erase(page_table.begin()); //remove fifo element from prim buffer
                     }
                 }
                 else { //prim buff is not full
@@ -186,22 +188,32 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
                 }
             }
             else if (locale_sec != NULL) { //present in secondary buffer
+                int index = 0;
                 hits_cnt++;
-                if (PTE->dirty == 1){
-                    locale_sec->dirty = 1;
+                if (locale_sec->dirty == 1)
+                {
+                    PTE->dirty = 1;
                 }
-
-                page_table.push_back(PTE);
-                secondary_buffer.push_back(page_table[0]);
-                page_table.erase(page_table.begin());
-                for (int i = 0; i < secondary_buffer.size(); i++) {
-                    if (secondary_buffer[i]->VPN == page_table[0]->VPN){
-                        secondary_buffer[i]->time_accessed = get_time_accessed();    //update elapsed time of inserted value
+                page_table.push_back(PTE); //pushing hit to prim buffer
+                for (int i = 0; i < secondary_buffer.size(); i++)
+                {
+                    if (secondary_buffer[i]->VPN = locale_sec->VPN)
+                    {
+                        index = i;
                     }
                 }
+                secondary_buffer.erase(secondary_buffer.begin() + index); //removing hit from secondary buffer
+                for (int i = 0; i < secondary_buffer.size(); i++)
+                {
+                    secondary_buffer[i]->time_accessed = elapsed_time; //updating access times
+                }
+                pt_entry* oldestInPrimary = page_table[0];
+                oldestInPrimary->time_accessed = 1; //reset access time of entry to be added to sec buffer
+                secondary_buffer.push_back(oldestInPrimary); //adding oldest in primary to sec buffer
+                page_table.erase(page_table.begin()); //removing oldest in primary from primary buffer
             }
             else{ //This shouldnt happen, the new entry cannot be in both buffers
-                std::cout << "please god dont print this.\n";
+                std::cout << "If you're reading this, it's too late.\n";
             }
         }
     }
