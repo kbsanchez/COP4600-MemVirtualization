@@ -197,7 +197,7 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
                 page_table.push_back(PTE); //pushing hit to prim buffer
                 for (int i = 0; i < secondary_buffer.size(); i++)
                 {
-                    if (secondary_buffer[i]->VPN = locale_sec->VPN)
+                    if ((secondary_buffer[i]->VPN) == (locale_sec->VPN))
                     {
                         index = i;
                     }
