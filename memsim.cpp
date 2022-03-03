@@ -285,7 +285,7 @@ int main(int argc, char *argv[]) {
         }                
 
         newEntry->VPN = addr / PAGE_SIZE;
-        newEntry->time_accessed = get_time_accessed();
+        newEntry->time_accessed = 0;
 
         if (alg == "fifo"){
             //Send entry to fifo
