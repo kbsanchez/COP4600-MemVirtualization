@@ -88,11 +88,11 @@ void lru(pt_entry *PTE, int nframes){
         reads_cnt++;
 
         if(page_table.size() == nframes){   //if page table is full
-            int smallest = 1000001;
+            int largest = -1;
             int lru = 0;
             for(int i = 0; i < page_table.size(); i++){         //search through table for smallest
-                if(page_table[i]->time_accessed < smallest){
-                    smallest = page_table[i]->time_accessed;
+                if(page_table[i]->time_accessed > largest){
+                    largest = page_table[i]->time_accessed;
                     lru = i;
                 }
             }
@@ -102,10 +102,18 @@ void lru(pt_entry *PTE, int nframes){
             }
 
             page_table.erase(page_table.begin() + lru);     //erase lru element
+            for (int i = 0; i < page_table.size(); i++)
+            {
+                page_table[i]->time_accessed++;      //update elapsed time sec buffer, in slides this is done before val is inserted
+            }
             page_table.push_back(PTE);     
         }
         else{   //if not full
-            PTE->time_accessed = elapsed_time;  //update elapsed time
+            //PTE->time_accessed = elapsed_time;  //update elapsed time
+            for (int i = 0; i < page_table.size(); i++)
+            {
+                page_table[i]->time_accessed++;      //update elapsed time sec buffer, in slides this is done before val is inserted
+            }
             page_table.push_back(PTE);
         }
 
@@ -114,7 +122,10 @@ void lru(pt_entry *PTE, int nframes){
         hits_cnt++;                                             
         for (int i = 0; i < page_table.size(); i++) {
             if (page_table[i]->VPN == PTE->VPN){
-                page_table[i]->time_accessed = elapsed_time;    //update elapsed time
+                page_table[i]->time_accessed = 0;    //update elapsed time
+            }
+            else {
+                page_table[i]->time_accessed++;
             }
         }
         if (PTE->dirty == 1){
@@ -143,11 +154,11 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
                 reads_cnt++;
                 if (page_table.size() == primaryFrames){    //If prim buffer is full
                     if (secondary_buffer.size() == secondaryFrames){    //If secondary buff is full
-                        int smallest = 1000001;                            
+                        int largest = -1;                            
                         int lru = 0; 
                         for (int i = 0; i < secondary_buffer.size(); i++){      //find lru entry and evict
-                            if(secondary_buffer[i]->time_accessed < smallest){
-                                smallest = secondary_buffer[i]->time_accessed;
+                            if(secondary_buffer[i]->time_accessed > largest){
+                                largest = secondary_buffer[i]->time_accessed;
                                 lru = i;
                             }
                         }
@@ -160,7 +171,7 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
                             secondary_buffer[i]->time_accessed = elapsed_time;      //update elapsed time sec buffer, in slides this is done before val is inserted
                         }
                         pt_entry* oldestInPrimary = page_table[0];
-                        oldestInPrimary->time_accessed = 1;     //resetting access time when value is pushed to sec buffer, just in case this val was in sec buffer before already
+                        oldestInPrimary->time_accessed = 0;     //resetting access time when value is pushed to sec buffer, just in case this val was in sec buffer before already
                         secondary_buffer.push_back(oldestInPrimary);    //push oldest in primary to sec buffer
                         page_table.push_back(PTE);      //push new entry to primary 
                         page_table.erase(page_table.begin());       //remove oldest from primary
@@ -172,7 +183,7 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
                             secondary_buffer[i]->time_accessed = elapsed_time;      //update sec buffer access times
                         }
                         pt_entry* oldestInPrimary = page_table[0];
-                        oldestInPrimary->time_accessed = 1;     //reseting access time
+                        oldestInPrimary->time_accessed = 0;     //reseting access time
                         secondary_buffer.push_back(oldestInPrimary);    //add fifo val to sec buffer
                         page_table.erase(page_table.begin());       //remove fifo element from prim buffer
                     }
@@ -208,7 +219,7 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
                     secondary_buffer[i]->time_accessed = elapsed_time;      //updating access times
                 }
                 pt_entry* oldestInPrimary = page_table[0];
-                oldestInPrimary->time_accessed = 1;         //reset access time of entry to be added to sec buffer
+                oldestInPrimary->time_accessed = 0;         //reset access time of entry to be added to sec buffer
                 secondary_buffer.push_back(oldestInPrimary);        //adding oldest in primary to sec buffer
                 page_table.erase(page_table.begin());       //removing oldest in primary from primary buffer
             }
