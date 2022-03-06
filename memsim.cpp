@@ -88,11 +88,11 @@ void lru(pt_entry *PTE, int nframes){
         reads_cnt++;
 
         if(page_table.size() == nframes){   //if page table is full
-            int smallest = 1000001;
+            int largest = -1;
             int lru = 0;
             for(int i = 0; i < page_table.size(); i++){         //search through table for smallest
-                if(page_table[i]->time_accessed < smallest){
-                    smallest = page_table[i]->time_accessed;
+                if(page_table[i]->time_accessed > largest){
+                    largest = page_table[i]->time_accessed;
                     lru = i;
                 }
             }
@@ -102,10 +102,18 @@ void lru(pt_entry *PTE, int nframes){
             }
 
             page_table.erase(page_table.begin() + lru);     //erase lru element
+            for (int i = 0; i < page_table.size(); i++)
+            {
+                page_table[i]->time_accessed++;      //update elapsed time sec buffer, in slides this is done before val is inserted
+            }
             page_table.push_back(PTE);     
         }
         else{   //if not full
-            PTE->time_accessed = elapsed_time;  //update elapsed time
+            //PTE->time_accessed = elapsed_time;  //update elapsed time
+            for (int i = 0; i < page_table.size(); i++)
+            {
+                page_table[i]->time_accessed++;      //update elapsed time sec buffer, in slides this is done before val is inserted
+            }
             page_table.push_back(PTE);
         }
 
@@ -114,7 +122,10 @@ void lru(pt_entry *PTE, int nframes){
         hits_cnt++;                                             
         for (int i = 0; i < page_table.size(); i++) {
             if (page_table[i]->VPN == PTE->VPN){
-                page_table[i]->time_accessed = elapsed_time;    //update elapsed time
+                page_table[i]->time_accessed = 0;    //update elapsed time
+            }
+            else {
+                page_table[i]->time_accessed++;
             }
         }
         if (PTE->dirty == 1){
@@ -124,7 +135,7 @@ void lru(pt_entry *PTE, int nframes){
 }
 
 void segmented_fifo(pt_entry *PTE, int nframes, int p){
-    int secondaryFrames = floor(nframes * (p * .01));
+    int secondaryFrames = nframes * (p * .01);
     int primaryFrames = nframes - secondaryFrames;
 
     if(primaryFrames == 0){ // if p = 100, it emulates lru
@@ -135,107 +146,90 @@ void segmented_fifo(pt_entry *PTE, int nframes, int p){
             fifo(PTE, nframes);
         }
         else{
-            pt_entry *locale = is_present(PTE);
-            if (locale == NULL) {   // if not in primary buffer
-                
-                // is primary full?
-                if (page_table.size() == primaryFrames){  // if primary is full
-                    pt_entry *locale2 = is_present_secondary(PTE);
-
-                    if (locale2 == NULL){   // if not in secondary buffer
-                        fault_cnt++;
-                        reads_cnt++;
-                        
-                        if (secondary_buffer.size() == secondaryFrames){    // if secondary buffer is full
-                            int smallest = 1000001;
-                            int lru = 0;
-                            for(int i = 0; i < secondary_buffer.size(); i++){         //search through table for smallest
-                                if(secondary_buffer[i]->time_accessed < smallest){
-                                    smallest = secondary_buffer[i]->time_accessed;
-                                    lru = i;
-                                }
+            //CHECK PRESENCE IN BOTH BUFFERS FIRST
+            pt_entry* locale_prim = is_present(PTE);
+            pt_entry* locale_sec = is_present_secondary(PTE); 
+            if (locale_prim == NULL && locale_sec == NULL){     //If absent from both
+                fault_cnt++;
+                reads_cnt++;
+                if (page_table.size() == primaryFrames){    //If prim buffer is full
+                    if (secondary_buffer.size() == secondaryFrames){    //If secondary buff is full
+                        int largest = -1;                            
+                        int lru = 0; 
+                        for (int i = 0; i < secondary_buffer.size(); i++){      //find lru entry and evict
+                            if(secondary_buffer[i]->time_accessed > largest){
+                                largest = secondary_buffer[i]->time_accessed;
+                                lru = i;
                             }
-
-                            if (secondary_buffer[lru]->dirty == 1) {
-                                writes_cnt++;
-                            }
-
-                            secondary_buffer.erase(secondary_buffer.begin() + lru);     //erase lru element
-
-                            pt_entry *temp = PTE;
-                            pt_entry *oldestInPrimary = page_table[0];
-
-                            secondary_buffer.erase(secondary_buffer.begin() + lru);     //erase element
-                            secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
-
-                            page_table[0] = temp;   // overwrite head of primary buffer
                         }
-                        else {  // if secondary buffer is not full
-                            PTE->time_accessed = elapsed_time;
-
-                            pt_entry *oldestInPrimary = page_table[0];
-
-                            secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
-
-                            page_table[0] = PTE;   // overwrite head of primary buffer
+                        if (secondary_buffer[lru]->dirty == 1){
+                            writes_cnt++;       //increment write count
                         }
+                        secondary_buffer.erase(secondary_buffer.begin() + lru);
+                        for (int i = 0; i < secondary_buffer.size(); i++)
+                        {
+                            secondary_buffer[i]->time_accessed = elapsed_time;      //update elapsed time sec buffer, in slides this is done before val is inserted
+                        }
+                        pt_entry* oldestInPrimary = page_table[0];
+                        oldestInPrimary->time_accessed = 0;     //resetting access time when value is pushed to sec buffer, just in case this val was in sec buffer before already
+                        secondary_buffer.push_back(oldestInPrimary);    //push oldest in primary to sec buffer
+                        page_table.push_back(PTE);      //push new entry to primary 
+                        page_table.erase(page_table.begin());       //remove oldest from primary
                     }
-                    else{   // if in secondary buffer
-                        hits_cnt++;
-                        int index = 0;                                             
-                        for (int i = 0; i < secondary_buffer.size(); i++) {
-                            if (secondary_buffer[i]->VPN == PTE->VPN){
-                                index = i;
-                                secondary_buffer[i]->time_accessed = elapsed_time;    //update elapsed time
-                            }
+                    else {      //secondary buff is not full
+                        page_table.push_back(PTE);      //add to prim buffer
+                        for (int i = 0; i < secondary_buffer.size(); i++)
+                        {
+                            secondary_buffer[i]->time_accessed = elapsed_time;      //update sec buffer access times
                         }
-                        if (PTE->dirty == 1){
-                            locale2->dirty = 1;
-                        }
-
-                        pt_entry *temp = locale2;
-                        pt_entry *oldestInPrimary = page_table[0];
-
-                        secondary_buffer.erase(secondary_buffer.begin() + index);     //erase element
-                        secondary_buffer.push_back(oldestInPrimary);    // move oldest element in primary buffer to secondary
-
-                        page_table[0] = temp;   // overwrite head of primary buffer
-
+                        pt_entry* oldestInPrimary = page_table[0];
+                        oldestInPrimary->time_accessed = 0;     //reseting access time
+                        secondary_buffer.push_back(oldestInPrimary);    //add fifo val to sec buffer
+                        page_table.erase(page_table.begin());       //remove fifo element from prim buffer
                     }
                 }
-                else {  // if primary is not full
-                    PTE->time_accessed = elapsed_time;
+                else {      //prim buff is not full
                     page_table.push_back(PTE);
                 }
-    
-                //      else if its not in secondary:
-                //      is secondary full?
-                //          if secondary full:
-                //              remove a page using lru
-                //              move primary buffer front to secondary buffer
-                //              add new page into primary
-                //          else:
-                //              move front of primary to secondary
-                //              add referenced new page into primary
-
             }
-            else {  // if in primary buffer - carry on like normal
+            else if (locale_prim != NULL) {     //present in primary buffer
                 hits_cnt++;
-                for (int i = 0; i < page_table.size(); i++) {
-                    if (page_table[i]->VPN == PTE->VPN){
-                        page_table[i]->time_accessed = elapsed_time;    //update elapsed time
+                if (PTE->dirty == 1){
+                    locale_prim->dirty = 1;
+                }
+            }
+            else if (locale_sec != NULL) {      //present in secondary buffer
+                int index = 0;
+                hits_cnt++;
+                if (locale_sec->dirty == 1)
+                {
+                    PTE->dirty = 1;
+                }
+                page_table.push_back(PTE);      //pushing hit to prim buffer
+                for (int i = 0; i < secondary_buffer.size(); i++)
+                {
+                    if ((secondary_buffer[i]->VPN) == (locale_sec->VPN))
+                    {
+                        index = i;
                     }
                 }
-
-                if (PTE->dirty == 1)
+                secondary_buffer.erase(secondary_buffer.begin() + index);       //removing hit from secondary buffer
+                for (int i = 0; i < secondary_buffer.size(); i++)
                 {
-                    locale->dirty = 1;
+                    secondary_buffer[i]->time_accessed = elapsed_time;      //updating access times
                 }
+                pt_entry* oldestInPrimary = page_table[0];
+                oldestInPrimary->time_accessed = 0;         //reset access time of entry to be added to sec buffer
+                secondary_buffer.push_back(oldestInPrimary);        //adding oldest in primary to sec buffer
+                page_table.erase(page_table.begin());       //removing oldest in primary from primary buffer
+            }
+            else{       //This shouldnt happen, the new entry cannot be in both buffers
+                std::cout << "If you're reading this, it's too late.\n";
             }
         }
-        
     }
 }
+
 
 int main(int argc, char *argv[]) {
     char* in_file = argv[1];
@@ -249,7 +243,7 @@ int main(int argc, char *argv[]) {
         p = atoi(argv[4]);
 
         //Percentage validation
-        if ((p < 1) || (p > 100)){
+        if ((p < 0) || (p > 100)){
             std::cout << "Error. Percentage must be a number between 1 and 100.\n";
             return -1;
         }
@@ -302,7 +296,7 @@ int main(int argc, char *argv[]) {
         }                
 
         newEntry->VPN = addr / PAGE_SIZE;
-        newEntry->time_accessed = get_time_accessed();
+        newEntry->time_accessed = 0;
 
         if (alg == "fifo"){
             //Send entry to fifo
