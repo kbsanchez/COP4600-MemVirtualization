@@ -8,6 +8,7 @@
 #include <math.h>
 
 #define PAGE_SIZE 4096 //Page sized is assumed 4KB, 4096 Bytes
+std::string mode = "";
 
 struct pt_entry
 {
@@ -52,6 +53,9 @@ pt_entry* is_present_secondary(pt_entry *entry) {
 }
 
 void fifo(pt_entry *PTE, int nframes){
+    if (mode == "debug"){
+        std::cout << "Simulating FIFO Replacement with VPN: " << PTE->VPN << "\n\n";
+    }
     pt_entry *locale = is_present(PTE);
     if (locale == NULL) { //if not present
         fault_cnt++;
@@ -81,6 +85,9 @@ void fifo(pt_entry *PTE, int nframes){
 }
 
 void lru(pt_entry *PTE, int nframes){
+    if (mode == "debug"){
+        std::cout << "Simulating LRU Replacement with VPN: " << PTE->VPN << "\n\n";
+    }
     pt_entry *locale = is_present(PTE);
     
     if(locale == NULL){ //if not present
@@ -135,6 +142,9 @@ void lru(pt_entry *PTE, int nframes){
 }
 
 void segmented_fifo(pt_entry *PTE, int nframes, int p){
+    if (mode == "debug"){
+        std::cout << "Simulating VMS Replacement with VPN: " << PTE->VPN << "\n\n";
+    }
     int secondaryFrames = nframes * (p * .01);
     int primaryFrames = nframes - secondaryFrames;
 
@@ -235,7 +245,7 @@ int main(int argc, char *argv[]) {
     char* in_file = argv[1];
     int num_frames = atoi(argv[2]);
     std::string alg = argv[3];
-    std::string mode = "";
+    //std::string mode = "";
     int p;
 
     //Algorithm validation
@@ -297,6 +307,11 @@ int main(int argc, char *argv[]) {
 
         newEntry->VPN = addr / PAGE_SIZE;
         newEntry->time_accessed = 0;
+
+        if (mode == "debug"){
+            std::cout << "Reading ADDR: " << addr << " " << rw << "\n";
+            std::cout << "Associated VPN: " << newEntry->VPN << "\n";
+        }
 
         if (alg == "fifo"){
             //Send entry to fifo
