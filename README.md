@@ -3,5 +3,9 @@
 1. FIFO (First In, First Out)
 2. LRU (Least Recently Used)
 3. Segmented FIFO
-## How to run
-#### This is a placeholder :-)
+## How to compile:
+1. Use the command "make", and it will compile a memsim executable
+2. Alternatively, you can compile using "g++ -o memsim memsim.cpp" to compile
+## How to run:
+1. FIFO and LRU format:
+#### ./memsim tracefile nFrames policy quiet/debug
