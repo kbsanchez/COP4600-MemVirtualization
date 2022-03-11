@@ -18,25 +18,25 @@
 - nFrames: number of frames to use 
 - quiet/debug: quiet will just print the stats while debug will print every event that happens 
 ## Running examples
-##### ./memsim bzip.trace 32 fifo quiet
-##### total memory frames: 32
-##### events in trace: 1000000
-##### total disk reads: 2497
-##### total disk writes: 851
-##### total faults: 2497
+     ./memsim bzip.trace 32 fifo quiet
+     total memory frames: 32
+     events in trace: 1000000
+     total disk reads: 2497
+     total disk writes: 851
+     total faults: 2497
 #
-##### ./memsim bzip.trace 16 lru quiet 
-##### total memory frames: 16
-##### events in trace: 1000000
-##### total disk reads: 3344
-##### total disk writes: 1069
-##### total faults: 3344
-##### total hits: 996656
+     ./memsim bzip.trace 16 lru quiet 
+     total memory frames: 16
+     events in trace: 1000000
+     total disk reads: 3344
+     total disk writes: 1069
+     total faults: 3344
+     total hits: 996656
 #
-##### ./memsim bzip.trace 64 vms 50 quiet
-##### total memory frames: 64
-##### events in trace: 1000000
-##### total disk reads: 1290
-##### total disk writes: 427
-##### total faults: 1290
-##### total hits: 998710
+     ./memsim bzip.trace 64 vms 50 quiet
+     total memory frames: 64
+     events in trace: 1000000
+     total disk reads: 1290
+     total disk writes: 427
+     total faults: 1290
+     total hits: 998710
